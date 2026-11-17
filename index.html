@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walk Tracker</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+}
+
+.header {
+    background: #2e7d32;
+    color: white;
+    padding: 15px;
+    text-align: center;
+}
+
+.stats {
+    display: flex;
+    justify-content: space-around;
+    padding: 15px;
+    background: white;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+}
+
+button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: white;
+    font-size: 16px;
+}
+
+.start { background: #28a745; }
+.stop  { background: #dc3545; }
+.reset { background: #007bff; }
+
+#map {
+    width: 100%;
+    height: 70vh;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <h2>👣 GPS Walk Tracker</h2>
+</div>
+
+<div class="stats">
+    <div>Distance: <span id="distance">0.00</span> km</div>
+</div>
+
+<div class="controls">
+    <button class="start" onclick="startTracking()">Start</button>
+    <button class="stop" onclick="stopTracking()">Stop</button>
+    <button class="reset" onclick="resetTracker()">Reset</button>
+</div>
+
+<div id="map"></div>
+
+<script>
+let map;
+let watchId = null;
+let pathCoordinates = [];
+let totalDistance = 0;
+
+let polyline;
+
+function initMap() {
+    map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 18,
+        center: { lat: 0, lng: 0 },
+        mapTypeId: "roadmap"
+    });
+
+    polyline = new google.maps.Polyline({
+        path: [],
+        geodesic: true,
+        strokeColor: "#FF0000",
+        strokeOpacity: 1.0,
+        strokeWeight: 4
+    });
+
+    polyline.setMap(map);
+}
+
+function startTracking() {
+
+    if (!navigator.geolocation) {
+        alert("Geolocation not supported.");
+        return;
+    }
+
+    watchId = navigator.geolocation.watchPosition(
+        updatePosition,
+        handleError,
+        {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
+        }
+    );
+}
+
+function stopTracking() {
+
+    if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+    }
+}
+
+function resetTracker() {
+
+    stopTracking();
+
+    pathCoordinates = [];
+    totalDistance = 0;
+
+    document.getElementById("distance").innerText = "0.00";
+
+    polyline.setPath([]);
+
+    initMap();
+}
+
+function updatePosition(position) {
+
+    const lat = position.coords.latitude;
+    const lng = position.coords.longitude;
+
+    const point = { lat, lng };
+
+    if (pathCoordinates.length > 0) {
+
+        const prev = pathCoordinates[pathCoordinates.length - 1];
+
+        totalDistance += calculateDistance(
+            prev.lat,
+            prev.lng,
+            lat,
+            lng
+        );
+
+        document.getElementById("distance").innerText =
+            totalDistance.toFixed(2);
+    }
+
+    pathCoordinates.push(point);
+
+    new google.maps.Marker({
+        position: point,
+        map: map,
+        label: "👣"
+    });
+
+    polyline.setPath(pathCoordinates);
+
+    map.setCenter(point);
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+
+    const R = 6371;
+
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+
+    const a =
+        Math.sin(dLat / 2) *
+        Math.sin(dLat / 2) +
+        Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
+
+function deg2rad(deg) {
+    return deg * (Math.PI / 180);
+}
+
+function handleError(error) {
+    alert("GPS Error: " + error.message);
+}
+</script>
+
+<script
+src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"
+async
+defer>
+</script>
+
+</body>
+</html>
